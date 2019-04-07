@@ -1,0 +1,38 @@
+
+Eden is a script-based tool for easily managing runs of many small jobs.
+A list of command lines that run your jobs is all that is needed--Eden takes 
+care of the rest.  Basically, Eden starts up some number of job-executing 
+processes (one for each cpu requested).  These processes then execute your job 
+commands in parallel, running through the list until it is exhausted.  When 
+complete, Eden provides a summary file of stderr, stdout and timing information
+from the individual runs.
+
+If you have lots of small jobs to run, Eden is the tool for you.
+
+------------------------------------------------------------------------
+
+There are two versions of Eden: one for use on a large shared-memory HPC machine
+(Nautilus) in a job scheduling environment; and one for use on a small, single 
+system with multiple CPUs (e.g. a typical quadcore laptop).
+
+Please see README_nautilus for information on running Eden on Nautilus or
+README_mp for information on running Eden on your laptop.
+
+------------------------------------------------------------------------
+
+Eden is currently maintained by:
+   Scott Simmerman
+
+Past contributors include:
+   James Osborne (RDAV intern, Summer 2010)
+   Adam Haney (RDAV intern, Summer 2010)
+   JD White (RDAV intern, Summer 2010)
+   Chad Armstrong (RDAV intern, Summer 2011)
+
+Overall vision and direction:
+   Jian Huang
+
+The development of Eden was supported primarily by the Office of Cyber 
+Infrastructure of the NSF under Award Number ARRA-NSF-OCI-0906324 for 
+NICS-RDAV center and NSF-OCI-1136246 for support of undergraduate research 
+in the NICS-RDAV center.

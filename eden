@@ -1,0 +1,121 @@
+#!/bin/sh
+
+########################################################################
+#
+# eden
+# Copyright (C) 2011 Scott Simmerman
+#
+# This file is part of Eden.
+#
+# Eden is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# Eden is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Eden.  If not, see <http://www.gnu.org/licenses/>.
+#
+########################################################################
+
+# run eden_config from within Eden directory to set EDEN_PATH
+EDEN_PATH=
+
+# check cmd line args
+usage="usage: eden run_dir [-m cores_per_job]"
+if test $# -ne 1 && test $# -ne 3; then
+   echo $usage
+   exit 1
+fi
+
+# check for existence of run_dir
+if test ! -d $1; then
+   echo " Error: run_dir '$1' not found"
+   exit 1
+fi
+
+# check for -m flag (for cores-per-job, default is 1)
+CPJ=1
+if test $# -eq 3; then
+    if test $2 != '-m'; then
+        echo $usage
+        exit 1
+    fi
+    CPJ=$3
+fi
+
+# get full path to run_dir
+case $(dirname $1) in
+    .) run_path=$PWD;;
+    ..) run_path=$(dirname $PWD);;
+    *) run_path=$(dirname $1)
+esac
+RUN_DIR=$run_path/$(basename $1)
+
+
+
+TIMESTAMP=$(date +%Y.%m.%d-%H.%M.%S)
+
+# see what files are in run_dir
+if test -f $RUN_DIR/eden.config; then
+   echo " ERROR: run_dir contains configuration file from previous run"
+   exit 1
+fi
+if test -f $RUN_DIR/params; then
+   echo " EDEN: generating commands"
+   $EDEN_PATH/make_commands.sh < $RUN_DIR/params > $RUN_DIR/commands
+   # check success of make_commands
+
+elif test ! -f $RUN_DIR/commands; then
+   echo " ERROR: no params or commands file found in run_dir"
+   exit 1
+fi
+
+if test ! -f $RUN_DIR/header.pbs; then
+    echo " ERROR: no header.pbs file found in run_dir"
+    exit 1
+fi
+
+# extract ncpus
+NCPUS=$(grep 'ncpus=' $RUN_DIR/header.pbs | sed 's/.*ncpus=\([0-9]*\).*/\1/')
+if test X"$NCPUS" = X; then
+   echo $usage
+   echo "header.pbs file must include PBS option of form '-l ncpus=###'"
+   exit 1
+fi
+
+if test $CPJ -ge $NCPUS; then
+    echo $usage
+    echo " ERROR: cores-per-job is greater or equal to ncpus"
+    exit 1
+fi
+
+# get number of digits in number of commands so we can pad indices properly
+NUM_DIGITS=$(( $(cat $RUN_DIR/commands | wc -l | wc -c) - 1))
+
+# write out eden.config file (this will be needed by abel processes)
+echo " EDEN: writing eden.config"
+echo "#!/bin/sh
+
+# $TIMESTAMP
+
+# Base configuration
+export mode=qsub
+export time=$TIMESTAMP
+export eden_path=$EDEN_PATH
+export run_dir=$RUN_DIR
+export outfiles_dir=$RUN_DIR/outfiles
+export commands_file=$RUN_DIR/commands
+export num_digits=$NUM_DIGITS
+export adam_hostname=$HOSTNAME
+export cores_per_abel=$CPJ
+export ncpus=$NCPUS
+" > $RUN_DIR/eden.config
+
+# adam takes over from here
+$EDEN_PATH/adam.sh $RUN_DIR/eden.config
+

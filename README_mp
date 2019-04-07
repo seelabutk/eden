@@ -1,0 +1,165 @@
+
+------------------------------------------------------------------------
+ Setup for Eden_mp
+------------------------------------------------------------------------
+
+Eden is a collection of scripts (Bourne shell and tcl) in a single directory.
+You can install the directory anywhere you wish on your system.
+
+Before you start using Eden, you must run the eden_config script from within
+the Eden directory:
+
+   > cd /some/path/to/eden
+   > ./eden_config
+
+The eden_config script will set up the correct path for your Eden installation.
+
+You probably want to add the eden path to your environment as well:
+   
+   > export PATH=/some/path/to/eden:$PATH
+
+------------------------------------------------------------------------
+ Basic Usage
+------------------------------------------------------------------------
+
+Eden_mp is very easy to use.  The basic steps are:
+
+    1 - Create a run directory--call it whatever you wish.
+    2 - Create a list of command lines to run your jobs--name it 'commands' 
+        and place it in your run directory.
+    3 - Run the main eden_mp script, specifying the name of your run directory 
+        as well as the number of CPUs you wish to run on.
+
+And that's all there is to it.  Here's an in-depth example:
+
+   > # make a run directory
+   > mkdir testrun
+   >
+   > # let's say we have already generated our command list 
+   > # called test_commands
+   > wc -l test_commands
+   3000
+   >
+   > head -n 5 test_commands
+   mkdir /path/to/output00; ./my_program -t 0.1 -o /path/to/output00
+   mkdir /path/to/output01; ./my_program -t 0.2 -o /path/to/output01
+   mkdir /path/to/output02; ./my_program -t 0.3 -o /path/to/output02
+   mkdir /path/to/output03; ./my_program -t 0.4 -o /path/to/output03
+   mkdir /path/to/output04; ./my_program -t 0.5 -o /path/to/output04
+   >
+   > # copy test_commands into run directory and rename it
+   > cp test_commands testrun/commands
+   >
+   > # also copy our executable into the run directory
+   > cp my_program testrun/
+   >
+   > # now we're ready to run Eden_mp
+   > eden_mp testrun 4
+     EDEN: writing eden.config
+     EDEN: creating outfiles directory
+   >
+
+A few clarifications:
+    - Notice in the above example that each command line in the list actually 
+    contains two commands separated by a semicolon.  Eden takes an entire line 
+    at a time from your commands file as a separate job for a particular CPU.  
+    So each 'job' can actually be multiple commands chained together.
+
+    - Eden_mp will run your jobs from within your run directory so you may need
+    to place your executables there as in the above example.
+
+------------------------------------------------------------------------
+Eden Output
+------------------------------------------------------------------------
+
+When your Eden run completes, you'll have several new things in your 
+run directory:
+
+    commands_done - as commands are completed, their index number is written to
+                    this file;  if an Eden job is stopped prematurely, this file
+                    can be used to start again from where it left off (see 
+                    'Restarting a run' below); also you can use this file to 
+                    monitor the progress of your Eden run
+    eden.config   - this file lists all of the information regarding your job 
+                    including a timestamp; it is used internally by Eden to 
+                    coordinate processes
+    summary.csv   - this is a csv listing of the stats from your job including 
+                    timing, filesizes of the stdout and stderr from your job 
+                    and the command line from each job
+    outfiles/     - this directory contains files for the stdout, stderr and 
+                    timing information from the individual commands run by Eden;
+                    for each command n, there will be n.out, n.err and n.time; 
+                    stats from these files are collected in the summary file
+
+------------------------------------------------------------------------
+Restarting a Run
+------------------------------------------------------------------------
+
+If for some reason, your Eden job stops prematurely, it can be restarted and 
+will pick up where it left off.  To accomplish this, create a new run directory
+and copy the commands and commands_done files from the incomplete run into this
+new directory.  Then run eden_mp with this new run directory to complete your 
+run.
+
+------------------------------------------------------------------------
+Advanced Usage
+------------------------------------------------------------------------
+   
+Running Eden from a params file
+
+For cases where you need to perform a parameter sweep through all possible 
+combinations of parameters, Eden provides a way to generate these commands 
+automatically via a params file.  A params file contains a template of the 
+command you wish to run with placeholders for values that will change from run 
+to run.  It then lists the various parameters with their possible values.  Eden
+will generate a commands file from this information which includes a command 
+for every possible combination of the parameter values.
+
+Here's a simple example of a params file:
+
+  ./myprogram -t $threshold -o file$i $alpha $beta
+  threshold 0.2 0.4 0.6 0.8 1.0
+  alpha NULL -a
+  beta NULL -b -B
+
+The first line is the command template with placeholders for the different 
+parameters.  The placeholders are simply the parameter name preprended with a 
+dollar sign ($) just like shell script variables ($threshold, $i, $alpha and 
+$beta).  The following lines list the parameter name (without the $) along with
+the possible values they can take on.  For instance, the threshold parameter 
+lists five values in this example.  The special keyword NULL is used for an 
+empty value (meaning the parameter will not appear in the command line).  For 
+instance, the beta parameter has three possibilites:  either it will appear as 
+-b or -B or else it will not appear at all.  The $i parameter is built-in to 
+Eden and simply provides an incremental index number to use for your commands.
+In this case, it is used to append the filename for each run. 
+
+To see how all of this works, look at the first few commands generated by the 
+above params file:
+
+  ./myprogram -t 0.2 -o file000 
+  ./myprogram -t 0.2 -o file001 -b
+  ./myprogram -t 0.2 -o file001 -B
+  ./myprogram -t 0.2 -o file002 -a
+  ./myprogram -t 0.2 -o file003 -a -b
+  ./myprogram -t 0.2 -o file003 -a -B
+  ./myprogram -t 0.4 -o file004 
+  ./myprogram -t 0.4 -o file005 -b
+  ...
+
+To run Eden with a params file, simply place the params file (instead of a 
+commands file) in your run directory and launch eden_mp.  Eden will then 
+automatically generate a command list and run your jobs.
+
+You may want to tweak the commands file generated from your params file before 
+running your jobs.  In this case, you can run the make_commands.sh script 
+separately, redirecting the output to a commands file:
+
+    > make_commands.sh < params > commands
+
+Then you can edit the generated commands file before placing it in the run 
+directory and running Eden.
+
+
+
+
